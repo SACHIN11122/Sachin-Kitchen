@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kundan's Kitchen -</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background: #f0f2f5;
+    }
+    h1, h2, h3 {
+      text-align: center;
+    }
+    .hidden {
+      display: none;
+    }
+    .login-box {
+      max-width: 400px;
+      margin: 50px auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .login-box input, .login-box button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 16px;
+    }
+    .logout-btn {
+      float: right;
+      margin: 1rem;
+      padding: 6px 12px;
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      padding: 1rem;
+    }
+    .card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      padding: 1rem;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .status {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 4px 10px;
+      border-radius: 5px;
+      color: #fff;
+      font-size: 14px;
+    }
+    .available {
+      background-color: #28a745;
+    }
+    .unavailable {
+      background-color: #dc3545;
+    }
+    .manager-only {
+      margin-top: 1rem;
+    }
+    .manager-only select,
+    .manager-only button,
+    #addItemSection input,
+    #addItemSection select {
+      margin-top: 6px;
+      padding: 8px;
+      font-size: 14px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      width: 100%;
+    }
+    #addItemSection {
+      max-width: 400px;
+      margin: 2rem auto;
+      background: #fff;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    #addItemSection h3 {
+      margin-bottom: 10px;
+    }
+    #addItemSection button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .backup-buttons {
+      text-align: center;
+      margin: 1rem auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: center;
+      max-width: 400px;
+    }
+    .backup-buttons button {
+      padding: 8px 12px;
+      cursor: pointer;
+      width: 100%;
+      border-radius: 5px;
+      border: none;
+      background: #17a2b8;
+      color: white;
+      font-size: 16px;
+    }
+    .backup-buttons input {
+      width: 100%;
+      padding: 8px;
+      font-size: 14px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    #searchInput {
+      max-width: 400px;
+      margin: 1rem auto 0 auto;
+      display: block;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      width: 100%;
+    }
+    @media screen and (max-width: 600px) {
+      .logout-btn {
+        float: none;
+        display: block;
+        margin: 1rem auto;
+      }
+      .card {
+        font-size: 14px;
+      }
+      #addItemSection, .login-box, .backup-buttons {
+        margin: 1rem;
+      }
+      #searchInput {
+        margin: 1rem 1rem 0 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login Page -->
+  <div id="loginPage" class="login-box">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Username" autocomplete="off" />
+    <input type="password" id="password" placeholder="Password" autocomplete="off" />
+    <button onclick="login()">Login</button>
+    <p id="loginError" style="color:red;"></p>
+  </div>
+
+  <!-- Inventory Page -->
+  <div id="inventoryPage" class="hidden">
+    <button class="logout-btn" onclick="logout()">Logout</button>
+    <h1>Inventory Management</h1>
+
+    <!-- Search Bar -->
+    <input type="text" id="searchInput" placeholder="Search items..." oninput="filterItems()" />
+
+    <!-- Export/Import (Manager Only) -->
+    <div id="backupSection" class="backup-buttons hidden">
+      <button onclick="exportData()">⬇️ Export Backup</button>
+      <input type="file" accept=".json" onchange="importData(event)" />
+    </div>
+
+    <!-- Add Item (Manager Only) -->
+    <div id="addItemSection" class="manager-only hidden">
+      <h3>Add New Item</h3>
+      <input type="text" id="itemName" placeholder="Item Name" autocomplete="off" />
+      <select id="itemStatus">
+        <option value="available">Available</option>
+        <option value="unavailable">Unavailable</option>
+      </select>
+      <button onclick="addItem()">Add Item</button>
+    </div>
+
+    <!-- Item List -->
+    <div class="container" id="itemContainer"></div>
+  </div>
+
+  <script>
+    // Hardcoded users with roles
+    const users = [
+      { username: "manager1", password: "admin123", role: "manager" },
+      { username: "emp1", password: "pass123", role: "employee" }
+    ];
+
+    let allItems = []; // To hold all items for filtering
+
+    // Login function
+    function login() {
+      const uname = document.getElementById("username").value.trim();
+      const pass = document.getElementById("password").value.trim();
+      const user = users.find(u => u.username === uname && u.password === pass);
+
+      if (user) {
+        localStorage.setItem("loggedInUser", JSON.stringify(user));
+        showInventory(user.role);
+        document.getElementById("loginError").innerText = "";
+      } else {
+        document.getElementById("loginError").innerText = "Invalid credentials!";
+      }
+    }
+
+    // Logout function
+    function logout() {
+      localStorage.removeItem("loggedInUser");
+      document.getElementById("inventoryPage").classList.add("hidden");
+      document.getElementById("loginPage").classList.remove("hidden");
+      clearInputs();
+      allItems = [];
+    }
+
+    // Clear login inputs
+    function clearInputs() {
+      document.getElementById("username").value = "";
+      document.getElementById("password").value = "";
+      document.getElementById("searchInput").value = "";
+    }
+
+    // Show inventory page with role-based UI
+    function showInventory(role) {
+      document.getElementById("loginPage").classList.add("hidden");
+      document.getElementById("inventoryPage").classList.remove("hidden");
+
+      if (role === "manager") {
+        document.getElementById("addItemSection").classList.remove("hidden");
+        document.getElementById("backupSection").classList.remove("hidden");
+      } else {
+        document.getElementById("addItemSection").classList.add("hidden");
+        document.getElementById("backupSection").classList.add("hidden");
+      }
+
+      loadItems();
+    }
+
+    // Load items from storage and render
+    function loadItems() {
+      allItems = JSON.parse(localStorage.getItem("inventoryItems")) || [];
+      renderItems(allItems);
+    }
+
+    // Render multiple items
+    function renderItems(items) {
+      const container = document.getElementById("itemContainer");
+      container.innerHTML = "";
+      items.forEach(renderItem);
+    }
+
+    // Render single item card
+    function renderItem(item) {
+      const container = document.getElementById("itemContainer");
+      const user = JSON.parse(localStorage.getItem("loggedInUser"));
+
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const statusClass = item.status === "available" ? "available" : "unavailable";
+
+      card.innerHTML = `
+        <h2>${item.name}</h2>
+        <span class="status ${statusClass}">${capitalize(item.status)}</span>
+        <div class="manager-only">
+          <label>Change Status:</label>
+          <select onchange="updateStatus('${item.name}', this.value)">
+            <option value="available" ${item.status === "available" ? "selected" : ""}>Available</option>
+            <option value="unavailable" ${item.status === "unavailable" ? "selected" : ""}>Unavailable</option>
+          </select>
+          <button onclick="deleteItem('${item.name}')">Delete</button>
+        </div>
+      `;
+
+      if (user?.role !== "manager") {
+        card.querySelector(".manager-only").style.display = "none";
+      }
+
+      container.appendChild(card);
+    }
+
+    // Capitalize first letter
+    function capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    // Add new item (manager only)
+    function addItem() {
+      const nameInput = document.getElementById("itemName");
+      const statusSelect = document.getElementById("itemStatus");
+      const name = nameInput.value.trim();
+      const status = statusSelect.value;
+
+      if (!name) {
+        alert("Please enter item name.");
+        return;
+      }
+
+      if (allItems.some(item => item.name.toLowerCase() === name.toLowerCase())) {
+        alert("Item already exists.");
+        return;
+      }
+
+      allItems.push({ name, status });
+      localStorage.setItem("inventoryItems", JSON.stringify(allItems));
+      renderItems(allItems);
+      nameInput.value = "";
+      statusSelect.value = "available";
+    }
+
+    // Update item status (manager only)
+    function updateStatus(name, newStatus) {
+      allItems = allItems.map(item => {
+        if (item.name === name) {
+          return { ...item, status: newStatus };
+        }
+        return item;
+      });
+      localStorage.setItem("inventoryItems", JSON.stringify(allItems));
+      renderItems(allItems);
+    }
+
+    // Delete item (manager only)
+    function deleteItem(name) {
+      if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+      allItems = allItems.filter(item => item.name !== name);
+      localStorage.setItem("inventoryItems", JSON.stringify(allItems));
+      renderItems(allItems);
+    }
+
+    // Export inventory JSON (manager only)
+    function exportData() {
+      const dataStr = JSON.stringify({ items: allItems }, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "inventory-backup.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Import inventory JSON (manager only)
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (!imported.items || !Array.isArray(imported.items)) {
+            alert("Invalid backup file format.");
+            return;
+          }
+          allItems = imported.items;
+          localStorage.setItem("inventoryItems", JSON.stringify(allItems));
+          renderItems(allItems);
+          alert("Backup imported successfully!");
+          event.target.value = ""; // Reset input
+        } catch {
+          alert("Error reading backup file.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Filter items based on search input
+    function filterItems() {
+      const query = document.getElementById("searchInput").value.trim().toLowerCase();
+      if (!query) {
+        renderItems(allItems);
+        return;
+      }
+      const filtered = allItems.filter(item => item.name.toLowerCase().includes(query));
+      renderItems(filtered);
+    }
+
+    // On page load: check if user logged in
+    window.onload = () => {
+      const savedUser = JSON.parse(localStorage.getItem("loggedInUser"));
+      if (savedUser) {
+        showInventory(savedUser.role);
+      }
+    };
+  </script>
+</body>
+</html>
